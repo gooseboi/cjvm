@@ -1,5 +1,6 @@
 *
 
+!build-java.py
 !Cargo.toml
 !Cargo.lock
 !src/
