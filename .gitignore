@@ -1,5 +1,9 @@
 *
 
-!Cargo.{toml,lock}
+!Cargo.toml
+!Cargo.lock
 !src/
 !src/*.rs
+
+!samples/
+!samples/.gitignore
