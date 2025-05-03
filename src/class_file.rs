@@ -493,20 +493,20 @@ pub struct ClassFile {
 }
 
 pub fn parse_class_file(class_file: &[u8]) -> ClassFile {
-    let mut reader = Cursor::new(class_file);
-    let magic = read_u32_be(&mut reader);
+    let reader = &mut Cursor::new(class_file);
+    let magic = read_u32_be(reader);
     println!("Magic: {magic:x}");
 
-    let minor_version = read_u16_be(&mut reader);
-    let major_version = read_u16_be(&mut reader);
+    let minor_version = read_u16_be(reader);
+    let major_version = read_u16_be(reader);
     println!("Version {major_version}.{minor_version}");
 
-    let constant_pool_count = read_u16_be(&mut reader);
+    let mut constant_pool_count = read_u16_be(reader);
     let mut constant_pool = Vec::with_capacity(constant_pool_count.into());
     println!("There are {constant_pool_count} constants");
 
     for i in 0..constant_pool_count {
-        let info = ConstantPoolInfo::parse(&mut reader);
+        let info = ConstantPoolInfo::parse(reader);
         println!("{i}: Found {info:?}");
         constant_pool.push(info);
     }
