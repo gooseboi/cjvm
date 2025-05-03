@@ -53,17 +53,17 @@ bitflags::bitflags! {
     /// Virtual Machine implementations.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     struct ClassAccessFlags: u16 {
-        ///Declared public; may be accessed from outside its package.
+        /// Declared public; may be accessed from outside its package.
         const Public = 0x0001;
         /// Declared final; no subclasses allowed.
         const Final = 0x0010;
-        ///Treat superclass methods specially when invoked by the invokespecial instruction.
+        /// Treat superclass methods specially when invoked by the invokespecial instruction.
         const Super = 0x0020;
         /// Is an interface, not a class.
         const Interface = 0x0200;
         /// Declared abstract; must not be instantiated.
         const Abstract = 0x0400;
-        ///  Declared synthetic; not present in the source code.
+        /// Declared synthetic; not present in the source code.
         const Synthetic = 0x1000 ;
         /// Declared as an annotation type.
         const Annotation = 0x2000;
@@ -344,8 +344,8 @@ impl ConstantPoolInfo {
             },
             // Fieldref
             9 => {
-                let class_index = read_u16_be(buf);
-                let name_and_type_index = read_u16_be(buf);
+                let class_index = read_u16_be(buf) - 1;
+                let name_and_type_index = read_u16_be(buf) - 1;
                 Self::Fieldref {
                     class_index,
                     name_and_type_index,
@@ -353,8 +353,8 @@ impl ConstantPoolInfo {
             }
             // Methodref
             10 => {
-                let class_index = read_u16_be(buf);
-                let name_and_type_index = read_u16_be(buf);
+                let class_index = read_u16_be(buf) - 1;
+                let name_and_type_index = read_u16_be(buf) - 1;
                 Self::Methodref {
                     class_index,
                     name_and_type_index,
@@ -364,8 +364,8 @@ impl ConstantPoolInfo {
             11 => todo!(),
             // NameAndType
             12 => {
-                let name_index = read_u16_be(buf);
-                let descriptor_index = read_u16_be(buf);
+                let name_index = read_u16_be(buf) - 1;
+                let descriptor_index = read_u16_be(buf) - 1;
                 Self::NameAndType {
                     name_index,
                     descriptor_index,
@@ -419,6 +419,8 @@ pub struct ClassFile {
     /// [`ClassFile::constant_pool`] table plus one. A [`ClassFile::constant_pool`] index is considered valid if it is greater
     /// than zero and less than `constant_pool_count`, with the exception for constants of type long
     /// and double noted in §4.4.5.
+    /// Note(chonk): The constant pool indexes are 1-based??? What???
+    /// Note(chonk): We offset these by one when reading them, to make them sane.
     ///
     /// The length is u16.
     ///
@@ -501,7 +503,9 @@ pub fn parse_class_file(class_file: &[u8]) -> ClassFile {
     let major_version = read_u16_be(reader);
     println!("Version {major_version}.{minor_version}");
 
-    let mut constant_pool_count = read_u16_be(reader);
+    // Refer to [`ClassFile::constant_pool`].
+    // Note(chonk): Why did they do this?
+    let constant_pool_count = read_u16_be(reader) - 1;
     let mut constant_pool = Vec::with_capacity(constant_pool_count.into());
     println!("There are {constant_pool_count} constants");
 
