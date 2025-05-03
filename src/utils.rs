@@ -1,5 +1,11 @@
 use std::io::{Cursor, Read};
 
+pub fn read_exact_bytes(buf: &mut impl Read, n: usize) -> Vec<u8> {
+    let mut tmp = vec![0u8; n];
+    buf.read_exact(&mut tmp).expect("it's a cursor");
+    tmp
+}
+
 pub fn read_u8_be(buf: &mut impl Read) -> u8 {
     let mut tmp = [0u8; 1];
     buf.read_exact(&mut tmp).expect("it's a cursor");

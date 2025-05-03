@@ -61,5 +61,5 @@ fn main() {
     println!("main class is {} bytes long", main_class.len());
 
     let main_class = class_file::parse_class_file(&main_class);
-    println!("{main_class:?}");
+    println!("{main_class:#?}");
 }

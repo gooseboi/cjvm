@@ -2,7 +2,9 @@
 // Jar file spec: https://docs.oracle.com/en/java/javase/20/docs/specs/jar/jar.html
 // Class file spec: https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html
 
-use crate::utils::{read_f32_be, read_f64_be, read_u8_be, read_u16_be, read_u32_be, read_u64_be};
+use crate::utils::{
+    read_exact_bytes, read_f32_be, read_f64_be, read_u8_be, read_u16_be, read_u32_be, read_u64_be,
+};
 
 use std::io::{Cursor, Read};
 
@@ -385,15 +387,266 @@ impl ConstantPoolInfo {
 #[derive(Debug, Clone)]
 struct FieldInfo {}
 
-#[derive(Debug, Clone)]
-struct MethodInfo {
-    access_flags: MethodAccessFlags,
-    name_index: u16,
-    descriptor_index: u16,
+impl FieldInfo {
+    fn parse(_reader: &mut impl Read) -> Self {
+        todo!()
+    }
 }
 
 #[derive(Debug, Clone)]
-struct AttributeInfo {}
+struct MethodInfo {
+    /// The value of the [`MethodInfo::access_flags`] item is a mask of flags used to denote access
+    /// permission to and properties of this method. The interpretation of each flag, when set, is
+    /// as shown in [`MethodAccessFlags`].
+    access_flags: MethodAccessFlags,
+
+    /// The value of the [`MethodInfo::name_index`] item must be a valid index into the
+    /// [`ClassFile::constant_pool`] table. The [`ClassFile::constant_pool`] entry at that index
+    /// must be a [`ConstantPoolInfo::Utf8`] (§4.4.7) structure representing either one of the
+    /// special method names (§2.9) `<init>` or `<clinit>`, or a valid unqualified name (§4.2.2)
+    /// denoting a method.
+    name_index: u16,
+
+    /// The value of the [`MethodInfo::descriptor_index`] item must be a valid index into the
+    /// [`ClassFile::constant_pool`] table. The [`ClassFile::constant_pool`] entry at that index
+    /// must be a [`ConstantPoolInfo::Utf8`] (§4.4.7) structure representing a valid method
+    /// descriptor (§4.3.3).
+    ///
+    /// A future edition of this specification may require that the last parameter descriptor of
+    /// the method descriptor is an array type if the [`MethodAccessFlags::VarArgs`] flag is set in
+    /// the [`MethodInfo::access_flags`] item.
+    descriptor_index: u16,
+
+    /// Each value of the attributes table must be an attribute structure ([`AttributeInfo`]). A
+    /// method can have any number of optional attributes associated with it.
+    ///
+    /// The attributes defined by this specification as appearing in the attributes table of a
+    /// [`MethodInfo`] structure are the `Code`, `Exceptions`, `Synthetic`, `Signature`,
+    /// `Deprecated`, `RuntimeVisibleAnnotations`, `RuntimeInvisibleAnnotations`,
+    /// `RuntimeVisibleParameterAnnotations`, `RuntimeInvisibleParameterAnnotations`, and
+    /// `AnnotationDefault` attributes.
+    ///
+    /// A Java Virtual Machine implementation must recognize and correctly read `Code` and
+    /// `Exceptions` attributes found in the attributes table of a [`MethodInfo`] structure. If a
+    /// Java Virtual Machine implementation recognizes class files whose version number is `49.0`
+    /// or above, it must recognize and correctly read `Signature`, `RuntimeVisibleAnnotations`,
+    /// `RuntimeInvisibleAnnotations`, `RuntimeVisibleParameterAnnotations`,
+    /// `RuntimeInvisibleParameterAnnotations` and `AnnotationDefault` attributes found in the
+    /// attributes table of a [`MethodInfo`] structure of a class file whose version number is
+    /// `49.0` or above.
+    ///
+    /// A Java Virtual Machine implementation is required to silently ignore any or all attributes
+    /// in the attributes table of a [`MethodInfo`] structure that it does not recognize. Attributes
+    /// not defined in this specification are not allowed to affect the semantics of the class
+    /// file, but only to provide additional descriptive information.
+    attributes: Vec<AttributeInfo>,
+}
+
+impl MethodInfo {
+    fn parse(reader: &mut impl Read, constant_pool: &[ConstantPoolInfo]) -> Self {
+        let access_flags = MethodAccessFlags::from_bits(read_u16_be(reader))
+            .expect("access flags should be valid");
+
+        let name_index = read_u16_be(reader) - 1;
+        println!("Method name index: {name_index}");
+
+        let descriptor_index = read_u16_be(reader) - 1;
+        println!("Descriptor name index: {descriptor_index}");
+
+        let attribute_count = read_u16_be(reader);
+        println!("Parsing {attribute_count} method attributes");
+        let attributes = (0..attribute_count)
+            .filter_map(|i| {
+                let attribute = AttributeInfo::parse(reader, constant_pool);
+                println!("{i}: Found attribute {attribute:?}");
+                attribute
+            })
+            .collect();
+
+        Self {
+            access_flags,
+            name_index,
+            descriptor_index,
+            attributes,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct ExceptionCodeEntry {
+    start_pc: u16,
+    end_pc: u16,
+    handler_pc: u16,
+    catch_type: u16,
+}
+
+/// Attributes are used in the [`ClassFile`], [`FieldInfo`], [`MethodInfo`], and [`AttributeInfo::Code`] structures of
+/// the class file format.
+///
+/// Certain attributes are predefined as part of the class file specification. They are listed in
+/// Table 4.6, accompanied by the version of the Java SE platform and the version of the class file
+/// format in which each first appeared. Within the context of their use in this specification,
+/// that is, in the attributes tables of the class file structures in which they appear, the names
+/// of these predefined attributes are reserved. Of the predefined attributes:
+///
+/// The ConstantValue, Code and Exceptions attributes must be recognized and correctly read by a
+/// class file reader for correct interpretation of the class file by a Java Virtual Machine
+/// implementation.
+///
+/// The InnerClasses, EnclosingMethod and Synthetic attributes must be recognized and correctly
+/// read by a class file reader in order to properly implement the Java SE platform class libraries
+/// (§2.12).
+///
+/// The RuntimeVisibleAnnotations, RuntimeInvisibleAnnotations, RuntimeVisibleParameterAnnotations,
+/// RuntimeInvisibleParameterAnnotations and AnnotationDefault attributes must be recognized and
+/// correctly read by a class file reader in order to properly implement the Java SE platform class
+/// libraries (§2.12), if the class file's version number is 49.0 or above and the Java Virtual
+/// Machine implementation recognizes class files whose version number is 49.0 or above.
+///
+/// The Signature attribute must be recognized and correctly read by a class file reader if the
+/// class file's version number is 49.0 or above and the Java Virtual Machine implementation
+/// recognizes class files whose version number is 49.0 or above.
+///
+/// The StackMapTable attribute must be recognized and correctly read by a class file reader if the
+/// class file's version number is 50.0 or above and the Java Virtual Machine implementation
+/// recognizes class files whose version number is 50.0 or above.
+///
+/// The BootstrapMethods attribute must be recognized and correctly read by a class file reader if
+/// the class file's version number is 51.0 or above and the Java Virtual Machine implementation
+/// recognizes class files whose version number is 51.0 or above.
+///
+/// Table 4.6:  Predefined class file attributes
+/// | Attribute                              | Java SE   | Class File Version   |
+/// | -------------------------------------- | -------   | -------------------- |
+/// | `ConstantValue`                        | `1.0.2`   | `45.3`               |
+/// | `Code`                                 | `1.0.2`   | `45.3`               |
+/// | `StackMapTable`                        | `6`       | `50.0`               |
+/// | `Exceptions`                           | `1.0.2`   | `45.3`               |
+/// | `InnerClasses`                         | `1.1`     | `45.3`               |
+/// | `EnclosingMethod`                      | `5.0`     | `49.0`               |
+/// | `Synthetic`                            | `1.1`     | `45.3`               |
+/// | `Signature`                            | `5.0`     | `49.0`               |
+/// | `SourceFile`                           | `1.0.2`   | `45.3`               |
+/// | `SourceDebugExtension`                 | `5.0`     | `49.0`               |
+/// | `LineNumberTable`                      | `1.0.2`   | `45.3`               |
+/// | `LocalVariableTable`                   | `1.0.2`   | `45.3`               |
+/// | `LocalVariableTypeTable`               | `5.0`     | `49.0`               |
+/// | `Deprecated`                           | `1.1`     | `45.3`               |
+/// | `RuntimeVisibleAnnotations`            | `5.0`     | `49.0`               |
+/// | `RuntimeInvisibleAnnotations`          | `5.0`     | `49.0`               |
+/// | `RuntimeVisibleParameterAnnotations`   | `5.0`     | `49.0`               |
+/// | `RuntimeInvisibleParameterAnnotations` | `5.0`     | `49.0`               |
+/// | `AnnotationDefault`                    | `5.0`     | `49.0`               |
+/// | `BootstrapMethods`                     | `7`       | `51.0`               |
+#[derive(Debug, Clone)]
+enum AttributeInfo {
+    ConstantValue {
+        constantvalue_index: u16,
+    },
+    Code {
+        max_stack: u16,
+        max_locals: u16,
+        code: Vec<u8>,
+        exception_table: Vec<ExceptionCodeEntry>,
+        attributes: Vec<AttributeInfo>,
+    },
+    StackMapTable,
+    Exceptions,
+    InnerClasses,
+    EnclosingMethod,
+    Synthetic,
+    Signature,
+    SourceFile {
+        sourcefile_index: u16,
+    },
+    SourceDebugExtension,
+    LineNumberTable,
+    LocalVariableTable,
+    LocalVariableTypeTable,
+    Deprecated,
+    RuntimeVisibleAnnotations,
+    RuntimeInvisibleAnnotations,
+    RuntimeVisibleParameterAnnotations,
+    RuntimeInvisibleParameterAnnotations,
+    AnnotationDefault,
+    BootstrapMethods,
+}
+
+impl AttributeInfo {
+    fn parse(reader: &mut impl Read, constant_pool: &[ConstantPoolInfo]) -> Option<Self> {
+        let attribute_name_index = read_u16_be(reader) - 1;
+        let attribute_name_index: usize = attribute_name_index.into();
+
+        let attribute_name = &constant_pool[attribute_name_index];
+
+        let ConstantPoolInfo::Utf8 {
+            bytes: attribute_name,
+        } = attribute_name
+        else {
+            panic!(
+                "attribute_name_index should point to an attribute_name, it pointed to {attribute_name:?}"
+            );
+        };
+
+        let attribute_length = read_u32_be(reader);
+        match attribute_name.as_str() {
+            "ConstantValue" => Some(Self::ConstantValue {
+                constantvalue_index: read_u16_be(reader),
+            }),
+            "Code" => {
+                let max_stack = read_u16_be(reader);
+                let max_locals = read_u16_be(reader);
+
+                let code_length = read_u32_be(reader);
+                let code = (0..code_length).map(|_| read_u8_be(reader)).collect();
+
+                let exception_table_length = read_u16_be(reader);
+                let exception_table = (0..exception_table_length)
+                    .map(|_| {
+                        let start_pc = read_u16_be(reader);
+                        let end_pc = read_u16_be(reader);
+                        let handler_pc = read_u16_be(reader);
+                        let catch_type = read_u16_be(reader);
+
+                        ExceptionCodeEntry {
+                            start_pc,
+                            end_pc,
+                            handler_pc,
+                            catch_type,
+                        }
+                    })
+                    .collect();
+
+                let attribute_count = read_u16_be(reader);
+                let attributes = (0..attribute_count)
+                    .filter_map(|_| Self::parse(reader, constant_pool))
+                    .collect();
+
+                Some(Self::Code {
+                    max_stack,
+                    max_locals,
+                    code,
+                    exception_table,
+                    attributes,
+                })
+            }
+            "SourceFile" => Some(Self::SourceFile {
+                sourcefile_index: read_u16_be(reader) - 1,
+            }),
+            _ => {
+                println!("Ignoring attribute name {attribute_name}");
+
+                read_exact_bytes(
+                    reader,
+                    attribute_length
+                        .try_into()
+                        .expect("attribute_length was more than usize"),
+                );
+                None
+            }
+        }
+    }
+}
 
 /// The contents of a `.class` file.
 ///
@@ -459,6 +712,8 @@ pub struct ClassFile {
     /// The value of the `interfaces_count` item gives the number of direct superinterfaces of this
     /// class or interface type.
     ///
+    /// This count is a u16.
+    ///
     /// Each value in the interfaces array must be a valid index into the [`ClassFile::constant_pool`] table. The
     /// [`ClassFile::constant_pool`] entry at each value of interfaces\[i\], where 0 ≤ i < `interfaces_count`, must be
     /// a `CONSTANT_Class_info` structure (§4.4.1) representing an interface that is a direct
@@ -506,26 +761,75 @@ pub fn parse_class_file(class_file: &[u8]) -> ClassFile {
     // Refer to [`ClassFile::constant_pool`].
     // Note(chonk): Why did they do this?
     let constant_pool_count = read_u16_be(reader) - 1;
-    let mut constant_pool = Vec::with_capacity(constant_pool_count.into());
     println!("There are {constant_pool_count} constants");
+    let constant_pool: Vec<ConstantPoolInfo> = (0..constant_pool_count)
+        .map(|i| {
+            let info = ConstantPoolInfo::parse(reader);
+            println!("{i}: Found constant {info:?}");
+            info
+        })
+        .collect();
 
-    for i in 0..constant_pool_count {
-        let info = ConstantPoolInfo::parse(reader);
-        println!("{i}: Found {info:?}");
-        constant_pool.push(info);
-    }
+    println!();
+
+    let access_flags =
+        ClassAccessFlags::from_bits(read_u16_be(reader)).expect("access flags should be valid");
+    println!("Access flags: {access_flags:?}");
+
+    let this_class = read_u16_be(reader);
+    println!("This class: {this_class}");
+
+    let super_class = read_u16_be(reader);
+    println!("Super class: {super_class}");
+    println!();
+
+    let interfaces_count = read_u16_be(reader);
+    let interfaces = (0..interfaces_count).map(|_| read_u16_be(reader)).collect();
+    println!("Interfaces: {interfaces:?}");
+    println!();
+
+    let field_count = read_u16_be(reader);
+    println!("Parsing {field_count} fields");
+    let fields = (0..field_count)
+        .map(|i| {
+            let info = FieldInfo::parse(reader);
+            println!("{i}: Found field {info:?}");
+            info
+        })
+        .collect();
+    println!();
+
+    let method_count = read_u16_be(reader);
+    println!("Parsing {method_count} methods");
+    let methods = (0..method_count)
+        .map(|i| {
+            let info = MethodInfo::parse(reader, &constant_pool);
+            println!("{i}: Found method {info:?}");
+            info
+        })
+        .collect();
+
+    let attribute_count = read_u16_be(reader);
+    println!("Parsing {attribute_count} attributes");
+    let attributes = (0..attribute_count)
+        .filter_map(|i| {
+            let info = AttributeInfo::parse(reader, &constant_pool);
+            println!("{i}: Found attribute {info:?}");
+            info
+        })
+        .collect();
 
     ClassFile {
         magic,
         minor_version,
         major_version,
         constant_pool,
-        access_flags: todo!(),
-        this_class: todo!(),
-        super_class: todo!(),
-        interfaces: todo!(),
-        fields: todo!(),
-        methods: todo!(),
-        attributes: todo!(),
+        access_flags,
+        this_class,
+        super_class,
+        interfaces,
+        fields,
+        methods,
+        attributes,
     }
 }
