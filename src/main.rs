@@ -270,10 +270,41 @@ enum ConstantPoolInfo {
     Utf8 {
         bytes: String,
     },
+
+    /// The [`ConstantPoolInfo::Integer`] structure represents 4-byte
+    /// numeric (int) constants.
     Integer {
+        /// The bytes item of the [`ConstantPoolInfo::Integer`] structure represents the value of the int
+        /// constant. The bytes of the value are stored in big-endian (high byte first) order.
         bytes: u32,
     },
+
+    /// The [`ConstantPoolInfo::Float`] structure represents 4-byte
+    /// numeric (float) constants.
     Float {
+        /// The bytes item of the [`ConstantPoolInfo::Float`] structure represents the value of the float
+        /// constant in IEEE 754 floating-point single format (§2.3.2). The bytes of the single
+        /// format representation are stored in big-endian (high byte first) order.
+        ///
+        /// The value represented by the [`ConstantPoolInfo::Float`] structure is determined as
+        /// follows. The bytes of the value are first converted into an int constant `bits`. Then:
+        ///
+        /// - If `bits` is `0x7f800000`, the float value will be positive infinity.
+        /// - If `bits` is `0xff800000`, the float value will be negative infinity.
+        /// - If `bits` is in the range `0x7f800001`-`0x7fffffff` or in the range
+        ///   `0xff800001`-`0xffffffff`, the float value will be `NaN`.
+        /// - In all other cases, let s, e, and m be three values that might be computed from bits:
+        ///   ```java
+        ///   int s = ((bits >> 31) == 0) ? 1 : -1;
+        ///   int e = ((bits >> 23) & 0xff);
+        ///   int m = (e == 0) ?
+        ///           (bits & 0x7fffff) << 1 :
+        ///           (bits & 0x7fffff) | 0x800000;
+        ///   ```
+        ///   Then the float value equals the result of the mathematical expression `s * m * 2**(e-150)`.
+        ///
+        ///   Note(chonk): I think this is equivalent to [`f32::from_bits`] when you take care of
+        ///   th edge cases
         bytes: f32,
     },
     Long {
@@ -283,7 +314,7 @@ enum ConstantPoolInfo {
         bytes: f64,
     },
 
-    /// The `CONSTANT_Class_info` structure is used to represent a class or an interface.
+    /// The [`ConstantPoolInfo::Class`] structure is used to represent a class or an interface.
     Class {
         /// The value of the [`ConstantPoolInfo::Class::name_index`] item must be a valid index into the [`ClassFile::constant_pool`]
         /// table. The [`ClassFile::constant_pool`] entry at that index must be a [`ConstantPoolInfo::Utf8`] (§4.4.7)
@@ -291,7 +322,15 @@ enum ConstantPoolInfo {
         /// (§4.2.1).
         name_index: u16,
     },
+
+    /// The [`ConstantPoolInfo::String`] structure is used to represent constant objects of the
+    /// type `String`:
     String {
+        /// The value of the [`ConstantPoolInfo::String::string_index`] item must be a valid index
+        /// into the [`ClassFile::constant_pool`] table. The [`ClassFile::constant_pool`] entry at
+        /// that index must be a [`ConstantPoolInfo::Utf8`] (§4.4.7) structure representing the
+        /// sequence of Unicode code points to which the String object
+        /// is to be initialized.
         string_index: u16,
     },
 
@@ -312,15 +351,56 @@ enum ConstantPoolInfo {
         /// [`ClassFile::constant_pool`] entry at that index must be a [`ConstantPoolInfo::NameAndType`]
         /// (§4.4.6) structure. This [`ClassFile::constant_pool`] entry indicates the name and
         /// descriptor of the field or method.
+        ///
+        /// In a [`ConstantPoolInfo::Fieldref`], the indicated descriptor must be a field
+        /// descriptor (§4.3.2). Otherwise, the indicated descriptor must be a method descriptor
+        /// (§4.3.3).
         name_and_type_index: u16,
     },
+
+    /// Fields, methods, and interface methods are represented by similar structures.
     Methodref {
+        /// The value of the [`ConstantPoolInfo::Fieldref::class_index`] item must be a valid index
+        /// into the [`ClassFile::constant_pool`] table. The [`ClassFile::constant_pool`] entry at
+        /// that index must be a [`ConstantPoolInfo::Class`] (§4.4.1) structure representing a
+        /// class or interface type that has the field or method as a member.
+        ///
+        /// The [`ConstantPoolInfo::Fieldref::class_index`] item of a
+        /// [`ConstantPoolInfo::Fieldref`] structure may be either a class type or an interface
+        /// type.
+        ///
+        /// The [`ConstantPoolInfo::Methodref::class_index`] item of a
+        /// [`ConstantPoolInfo::Methodref`] structure must be a class type, not an interface type.
         class_index: u16,
+
+        /// The value of the [`ConstantPoolInfo::Fieldref::name_and_type_index`] item must be a
+        /// valid index into the [`ClassFile::constant_pool`] table. The
+        /// [`ClassFile::constant_pool`] entry at that index must be a [`ConstantPoolInfo::NameAndType`]
+        /// (§4.4.6) structure. This [`ClassFile::constant_pool`] entry indicates the name and
+        /// descriptor of the field or method.
+        ///
+        /// If the name of the method of a [`ConstantPoolInfo::Methodref`]structure begins with a
+        /// '<' ('\u003c'), then the name must be the special name `<init>`, representing an instance
+        /// initialization method (§2.9). The return type of such a method must be void.
         name_and_type_index: u16,
     },
     InterfaceMethodref,
+
+    /// The [`ConstantPoolInfo::NameAndType`] structure is used to represent a field or method,
+    /// without indicating which class or interface type it belongs to:
     NameAndType {
+        /// The value of the [`ConstantPoolInfo::NameAndType::name_index`] item must be a valid
+        /// index into the [`ClassFile::constant_pool`] table. The [`ClassFile::constant_pool`]
+        /// entry at that index must be a [`ConstantPoolInfo::Utf8`] (§4.4.7) structure
+        /// representing either the special method name `<init>` (§2.9) or a valid unqualified name
+        /// (§4.2.2) denoting a field or method.
         name_index: u16,
+
+        /// The value of the [`ConstantPoolInfo::NameAndType::descriptor_index`] item must be a
+        /// valid index into the [`ClassFile::constant_pool`] table. The
+        /// [`ClassFile::constant_pool`] entry at that index must be a [`ConstantPoolInfo::Utf8`]
+        /// (§4.4.7) structure representing a valid field descriptor (§4.3.2) or method descriptor
+        /// (§4.3.3).
         descriptor_index: u16,
     },
     MethodHandle,
@@ -465,7 +545,14 @@ fn read_u64_be(buf: &mut Cursor<&[u8]>) -> u64 {
 fn read_f32_be(buf: &mut Cursor<&[u8]>) -> f32 {
     let mut tmp = [0u8; 4];
     buf.read_exact(&mut tmp).expect("it's a cursor");
-    f32::from_be_bytes(tmp)
+    let res = u32::from_be_bytes(tmp);
+    // Refer to [`ConstantPoolInfo::Float::bytes`].
+    match res {
+        0x7f80_0000 => f32::INFINITY,
+        0xff80_0000 => f32::NEG_INFINITY,
+        0x7f80_0001..=0x7fff_ffff | 0xff80_0001..=0xffff_ffff => f32::NAN,
+        _ => f32::from_bits(res),
+    }
 }
 
 fn read_f64_be(buf: &mut Cursor<&[u8]>) -> f64 {
