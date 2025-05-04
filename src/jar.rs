@@ -1,3 +1,5 @@
+// Jar file spec: https://docs.oracle.com/en/java/javase/20/docs/specs/jar/jar.html
+
 use std::collections::HashMap;
 
 pub struct Manifest {

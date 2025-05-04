@@ -1,5 +1,3 @@
-// Useful links:
-// Jar file spec: https://docs.oracle.com/en/java/javase/20/docs/specs/jar/jar.html
 // Class file spec: https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html
 
 use crate::utils::{
