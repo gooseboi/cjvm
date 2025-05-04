@@ -51,6 +51,7 @@ bitflags::bitflags! {
     /// All bits of the [`ClassFile::access_flags`] item not assigned in Table 4.1 are reserved for future
     /// use. They should be set to zero in generated class files and should be ignored by Java
     /// Virtual Machine implementations.
+    // TODO: Add the above into each field
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     struct ClassAccessFlags: u16 {
         /// Declared public; may be accessed from outside its package.
@@ -203,9 +204,13 @@ enum ConstantPoolInfo {
         ///   th edge cases
         bytes: f32,
     },
+
+    // TODO: Add docs
     Long {
         bytes: u64,
     },
+
+    // TODO: Add docs
     Double {
         bytes: f64,
     },
@@ -328,10 +333,12 @@ impl ConstantPoolInfo {
             },
             // Long
             5 => Self::Long {
+                // TODO(chonk): These count as 2 indexes (WHAT?) so we need to shift accordingly.
                 bytes: read_u64_be(buf),
             },
             // Double
             6 => Self::Double {
+                // TODO(chonk): These count as 2 indexes (WHAT?) so we need to shift accordingly.
                 bytes: read_f64_be(buf),
             },
             // Class
