@@ -332,15 +332,21 @@ impl ConstantPoolInfo {
                 bytes: read_f32_be(buf),
             },
             // Long
-            5 => Self::Long {
-                // TODO(chonk): These count as 2 indexes (WHAT?) so we need to shift accordingly.
-                bytes: read_u64_be(buf),
-            },
+            5 => {
+                todo!("indexes for long count as 2 indexes (WHAT?) so we need to shift accordingly")
+                // Self::Long {
+                // bytes: read_u64_be(buf),
+                // }
+            }
             // Double
-            6 => Self::Double {
-                // TODO(chonk): These count as 2 indexes (WHAT?) so we need to shift accordingly.
-                bytes: read_f64_be(buf),
-            },
+            6 => {
+                todo!(
+                    "indexes for double count as 2 indexes (WHAT?) so we need to shift accordingly"
+                )
+                // Self::Double {
+                // bytes: read_f64_be(buf),
+                // }
+            }
             // Class
             7 => Self::Class {
                 name_index: read_u16_be(buf),
