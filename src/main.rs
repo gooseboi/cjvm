@@ -8,6 +8,9 @@
 mod class_file;
 mod jar;
 mod utils;
+use class_file::{
+    ClassFile, ConstantPoolInfo, FieldDescriptor, MethodAccessFlags, MethodDescriptor, MethodInfo,
+};
 
 use camino::Utf8PathBuf;
 use clap::Parser as _;
@@ -18,6 +21,63 @@ use std::fs::File;
 struct Cmd {
     #[arg()]
     fname: Utf8PathBuf,
+}
+
+fn is_main_method(main_class: &ClassFile, method: &MethodInfo) -> bool {
+    let ConstantPoolInfo::Utf8 { bytes } = &main_class.constant_pool[method.name_index as usize]
+    else {
+        panic!("method name_index was not Utf8");
+    };
+
+    // It's called main
+    if bytes != "main" {
+        return false;
+    }
+
+    // It's public
+    if (method.access_flags & MethodAccessFlags::Public).is_empty() {
+        return false;
+    }
+
+    // It's static
+    if (method.access_flags & MethodAccessFlags::Static).is_empty() {
+        return false;
+    }
+
+    let ConstantPoolInfo::Utf8 { bytes: descriptor } =
+        &main_class.constant_pool[method.descriptor_index as usize]
+    else {
+        panic!("method descriptor was not Utf8");
+    };
+
+    let descriptor = MethodDescriptor::parse(descriptor);
+
+    // It should return void
+    let FieldDescriptor::Void = descriptor.return_ty else {
+        return false;
+    };
+
+    // It can only have one
+    let [param] = &descriptor.parameters[..] else {
+        return false;
+    };
+
+    // It should take an array
+    let FieldDescriptor::Array { ty } = param else {
+        return false;
+    };
+
+    // The array should hold a class
+    let FieldDescriptor::Class { class_name } = ty.as_ref() else {
+        return false;
+    };
+
+    // The class in the array should be a String
+    if class_name != "java/lang/String" {
+        return false;
+    }
+
+    true
 }
 
 fn main() {
@@ -62,4 +122,14 @@ fn main() {
 
     let main_class = class_file::parse_class_file(&main_class);
     println!("{main_class:#?}");
+
+    if let Some(main_method) = main_class
+        .methods
+        .iter()
+        .find(|m| is_main_method(&main_class, m))
+    {
+        println!("found main_method: {main_method:?}");
+    } else {
+        println!("there was no main method D:");
+    }
 }
