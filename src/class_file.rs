@@ -1,8 +1,8 @@
 // Class file spec: https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html
+// TODO: Remove this later
+#![allow(unused)]
 
-use crate::utils::{
-    read_exact_bytes, read_f32_be, read_f64_be, read_u8_be, read_u16_be, read_u32_be, read_u64_be,
-};
+use crate::utils::{read_exact_bytes, read_f32_be, read_u8_be, read_u16_be, read_u32_be};
 
 use std::io::{Cursor, Read};
 
@@ -53,7 +53,7 @@ bitflags::bitflags! {
     /// Virtual Machine implementations.
     // TODO: Add the above into each field
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    struct ClassAccessFlags: u16 {
+    pub struct ClassAccessFlags: u16 {
         /// Declared public; may be accessed from outside its package.
         const Public = 0x0001;
         /// Declared final; no subclasses allowed.
@@ -163,27 +163,27 @@ bitflags::bitflags! {
 }
 
 #[derive(Debug, Clone)]
-pub enum ConstantPoolInfo {
+pub enum ConstantInfo {
     Utf8 {
         bytes: String,
     },
 
-    /// The [`ConstantPoolInfo::Integer`] structure represents 4-byte
+    /// The [`ConstantInfo::Integer`] structure represents 4-byte
     /// numeric (int) constants.
     Integer {
-        /// The bytes item of the [`ConstantPoolInfo::Integer`] structure represents the value of the int
+        /// The bytes item of the [`ConstantInfo::Integer`] structure represents the value of the int
         /// constant. The bytes of the value are stored in big-endian (high byte first) order.
         bytes: u32,
     },
 
-    /// The [`ConstantPoolInfo::Float`] structure represents 4-byte
+    /// The [`ConstantInfo::Float`] structure represents 4-byte
     /// numeric (float) constants.
     Float {
-        /// The bytes item of the [`ConstantPoolInfo::Float`] structure represents the value of the float
+        /// The bytes item of the [`ConstantInfo::Float`] structure represents the value of the float
         /// constant in IEEE 754 floating-point single format (§2.3.2). The bytes of the single
         /// format representation are stored in big-endian (high byte first) order.
         ///
-        /// The value represented by the [`ConstantPoolInfo::Float`] structure is determined as
+        /// The value represented by the [`ConstantInfo::Float`] structure is determined as
         /// follows. The bytes of the value are first converted into an int constant `bits`. Then:
         ///
         /// - If `bits` is `0x7f800000`, the float value will be positive infinity.
@@ -215,21 +215,21 @@ pub enum ConstantPoolInfo {
         bytes: f64,
     },
 
-    /// The [`ConstantPoolInfo::Class`] structure is used to represent a class or an interface.
+    /// The [`ConstantInfo::Class`] structure is used to represent a class or an interface.
     Class {
-        /// The value of the [`ConstantPoolInfo::Class::name_index`] item must be a valid index into the [`ClassFile::constant_pool`]
-        /// table. The [`ClassFile::constant_pool`] entry at that index must be a [`ConstantPoolInfo::Utf8`] (§4.4.7)
+        /// The value of the [`ConstantInfo::Class::name_index`] item must be a valid index into the [`ClassFile::constant_pool`]
+        /// table. The [`ClassFile::constant_pool`] entry at that index must be a [`ConstantInfo::Utf8`] (§4.4.7)
         /// structure representing a valid binary class or interface name encoded in internal form
         /// (§4.2.1).
         name_index: u16,
     },
 
-    /// The [`ConstantPoolInfo::String`] structure is used to represent constant objects of the
+    /// The [`ConstantInfo::String`] structure is used to represent constant objects of the
     /// type `String`:
     String {
-        /// The value of the [`ConstantPoolInfo::String::string_index`] item must be a valid index
+        /// The value of the [`ConstantInfo::String::string_index`] item must be a valid index
         /// into the [`ClassFile::constant_pool`] table. The [`ClassFile::constant_pool`] entry at
-        /// that index must be a [`ConstantPoolInfo::Utf8`] (§4.4.7) structure representing the
+        /// that index must be a [`ConstantInfo::Utf8`] (§4.4.7) structure representing the
         /// sequence of Unicode code points to which the String object
         /// is to be initialized.
         string_index: u16,
@@ -237,23 +237,23 @@ pub enum ConstantPoolInfo {
 
     /// Fields, methods, and interface methods are represented by similar structures.
     Fieldref {
-        /// The value of the [`ConstantPoolInfo::Fieldref::class_index`] item must be a valid index
+        /// The value of the [`ConstantInfo::Fieldref::class_index`] item must be a valid index
         /// into the [`ClassFile::constant_pool`] table. The [`ClassFile::constant_pool`] entry at
-        /// that index must be a [`ConstantPoolInfo::Class`] (§4.4.1) structure representing a
+        /// that index must be a [`ConstantInfo::Class`] (§4.4.1) structure representing a
         /// class or interface type that has the field or method as a member.
         ///
-        /// The [`ConstantPoolInfo::Fieldref::class_index`] item of a
-        /// [`ConstantPoolInfo::Fieldref`] structure may be either a class type or an interface
+        /// The [`ConstantInfo::Fieldref::class_index`] item of a
+        /// [`ConstantInfo::Fieldref`] structure may be either a class type or an interface
         /// type.
         class_index: u16,
 
-        /// The value of the [`ConstantPoolInfo::Fieldref::name_and_type_index`] item must be a
+        /// The value of the [`ConstantInfo::Fieldref::name_and_type_index`] item must be a
         /// valid index into the [`ClassFile::constant_pool`] table. The
-        /// [`ClassFile::constant_pool`] entry at that index must be a [`ConstantPoolInfo::NameAndType`]
+        /// [`ClassFile::constant_pool`] entry at that index must be a [`ConstantInfo::NameAndType`]
         /// (§4.4.6) structure. This [`ClassFile::constant_pool`] entry indicates the name and
         /// descriptor of the field or method.
         ///
-        /// In a [`ConstantPoolInfo::Fieldref`], the indicated descriptor must be a field
+        /// In a [`ConstantInfo::Fieldref`], the indicated descriptor must be a field
         /// descriptor (§4.3.2). Otherwise, the indicated descriptor must be a method descriptor
         /// (§4.3.3).
         name_and_type_index: u16,
@@ -261,45 +261,45 @@ pub enum ConstantPoolInfo {
 
     /// Fields, methods, and interface methods are represented by similar structures.
     Methodref {
-        /// The value of the [`ConstantPoolInfo::Fieldref::class_index`] item must be a valid index
+        /// The value of the [`ConstantInfo::Fieldref::class_index`] item must be a valid index
         /// into the [`ClassFile::constant_pool`] table. The [`ClassFile::constant_pool`] entry at
-        /// that index must be a [`ConstantPoolInfo::Class`] (§4.4.1) structure representing a
+        /// that index must be a [`ConstantInfo::Class`] (§4.4.1) structure representing a
         /// class or interface type that has the field or method as a member.
         ///
-        /// The [`ConstantPoolInfo::Fieldref::class_index`] item of a
-        /// [`ConstantPoolInfo::Fieldref`] structure may be either a class type or an interface
+        /// The [`ConstantInfo::Fieldref::class_index`] item of a
+        /// [`ConstantInfo::Fieldref`] structure may be either a class type or an interface
         /// type.
         ///
-        /// The [`ConstantPoolInfo::Methodref::class_index`] item of a
-        /// [`ConstantPoolInfo::Methodref`] structure must be a class type, not an interface type.
+        /// The [`ConstantInfo::Methodref::class_index`] item of a
+        /// [`ConstantInfo::Methodref`] structure must be a class type, not an interface type.
         class_index: u16,
 
-        /// The value of the [`ConstantPoolInfo::Fieldref::name_and_type_index`] item must be a
+        /// The value of the [`ConstantInfo::Fieldref::name_and_type_index`] item must be a
         /// valid index into the [`ClassFile::constant_pool`] table. The
-        /// [`ClassFile::constant_pool`] entry at that index must be a [`ConstantPoolInfo::NameAndType`]
+        /// [`ClassFile::constant_pool`] entry at that index must be a [`ConstantInfo::NameAndType`]
         /// (§4.4.6) structure. This [`ClassFile::constant_pool`] entry indicates the name and
         /// descriptor of the field or method.
         ///
-        /// If the name of the method of a [`ConstantPoolInfo::Methodref`]structure begins with a
+        /// If the name of the method of a [`ConstantInfo::Methodref`]structure begins with a
         /// '<' ('\u003c'), then the name must be the special name `<init>`, representing an instance
         /// initialization method (§2.9). The return type of such a method must be void.
         name_and_type_index: u16,
     },
     InterfaceMethodref,
 
-    /// The [`ConstantPoolInfo::NameAndType`] structure is used to represent a field or method,
+    /// The [`ConstantInfo::NameAndType`] structure is used to represent a field or method,
     /// without indicating which class or interface type it belongs to:
     NameAndType {
-        /// The value of the [`ConstantPoolInfo::NameAndType::name_index`] item must be a valid
+        /// The value of the [`ConstantInfo::NameAndType::name_index`] item must be a valid
         /// index into the [`ClassFile::constant_pool`] table. The [`ClassFile::constant_pool`]
-        /// entry at that index must be a [`ConstantPoolInfo::Utf8`] (§4.4.7) structure
+        /// entry at that index must be a [`ConstantInfo::Utf8`] (§4.4.7) structure
         /// representing either the special method name `<init>` (§2.9) or a valid unqualified name
         /// (§4.2.2) denoting a field or method.
         name_index: u16,
 
-        /// The value of the [`ConstantPoolInfo::NameAndType::descriptor_index`] item must be a
+        /// The value of the [`ConstantInfo::NameAndType::descriptor_index`] item must be a
         /// valid index into the [`ClassFile::constant_pool`] table. The
-        /// [`ClassFile::constant_pool`] entry at that index must be a [`ConstantPoolInfo::Utf8`]
+        /// [`ClassFile::constant_pool`] entry at that index must be a [`ConstantInfo::Utf8`]
         /// (§4.4.7) structure representing a valid field descriptor (§4.3.2) or method descriptor
         /// (§4.3.3).
         descriptor_index: u16,
@@ -309,7 +309,7 @@ pub enum ConstantPoolInfo {
     InvokeDynamic,
 }
 
-impl ConstantPoolInfo {
+impl ConstantInfo {
     fn parse(buf: &mut Cursor<&[u8]>) -> Self {
         let tag = read_u8_be(buf);
         match tag {
@@ -349,11 +349,11 @@ impl ConstantPoolInfo {
             }
             // Class
             7 => Self::Class {
-                name_index: read_u16_be(buf),
+                name_index: read_u16_be(buf) - 1,
             },
             // String
             8 => Self::String {
-                string_index: read_u16_be(buf),
+                string_index: read_u16_be(buf) - 1,
             },
             // Fieldref
             9 => {
@@ -396,10 +396,10 @@ impl ConstantPoolInfo {
 }
 
 #[derive(Debug, Clone)]
-struct FieldInfo {}
+pub struct FieldInfo {}
 
 impl FieldInfo {
-    fn parse(_reader: &mut impl Read) -> Self {
+    pub fn parse(_reader: &mut impl Read) -> Self {
         todo!()
     }
 }
@@ -407,7 +407,7 @@ impl FieldInfo {
 /// A field descriptor represents the type of a class, instance, or local variable. It is a series of characters generated by the grammar:
 ///
 ///
-/// ```
+/// ```text
 /// FieldDescriptor:
 ///     FieldType
 ///
@@ -436,28 +436,28 @@ impl FieldInfo {
 ///     FieldType
 /// ```
 ///
-/// The characters of BaseType, the L and ; of ObjectType, and the [ of ArrayType are all ASCII
-/// characters.
+/// The characters of `BaseType`, the `L` and `;` of `ObjectType`, and the `[` of `ArrayType` are
+/// all ASCII characters.
 ///
-/// The ClassName represents a binary class or interface name encoded in internal form.
+/// The `ClassName` represents a binary class or interface name encoded in internal form.
 ///
 /// The interpretation of field descriptors as types is as shown in Table 4.2.
 ///
 /// A field descriptor representing an array type is valid only if it represents a type with 255 or fewer dimensions.
 ///
-/// Table 4.2. Interpretation of FieldType characters
-/// | BaseType Character | Type      | Interpretation                                                                    |
-/// | ------------------ | --------- | --------------------------------------------------------------------------------- |
-/// | B                  | byte      | signed byte                                                                       |
-/// | C                  | char      | Unicode character code point in the Basic Multilingual Plane, encoded with UTF-16 |
-/// | D                  | double    | double-precision floating-point value                                             |
-/// | F                  | float     | single-precision floating-point value                                             |
-/// | I                  | int       | integer                                                                           |
-/// | J                  | long      | long integer                                                                      |
-/// | L ClassName ;      | reference | an instance of class ClassName                                                    |
-/// | S                  | short     | signed short                                                                      |
-/// | Z                  | boolean   | true or false                                                                     |
-/// | [                  | reference | one array dimension                                                               |
+/// Table 4.2. Interpretation of `FieldType` characters
+/// | `BaseType Character` | `Type`      | `Interpretation`                                                                    |
+/// | -------------------- | ----------- | ----------------------------------------------------------------------------------- |
+/// | `B`                  | `byte`      | `signed byte`                                                                       |
+/// | `C`                  | `char`      | `Unicode character code point in the Basic Multilingual Plane, encoded with UTF-16` |
+/// | `D`                  | `double`    | `double-precision floating-point value`                                             |
+/// | `F`                  | `float`     | `single-precision floating-point value`                                             |
+/// | `I`                  | `int`       | `integer`                                                                           |
+/// | `J`                  | `long`      | `long integer`                                                                      |
+/// | `L ClassName ;`      | `reference` | `an instance of class ClassName`                                                    |
+/// | `S`                  | `short`     | `signed short`                                                                      |
+/// | `Z`                  | `boolean`   | `true or false`                                                                     |
+/// | `[`                  | `reference` | `one array dimension`                                                               |
 ///
 /// The field descriptor of an instance variable of type int is simply I.
 ///
@@ -582,7 +582,6 @@ impl MethodDescriptor {
         let (_, mut rest) = desc.split_once('(').expect("descriptor has a leading '('");
 
         let mut parameters = vec![];
-        println!("parsing method parameters");
         loop {
             let first = rest
                 .chars()
@@ -594,12 +593,10 @@ impl MethodDescriptor {
 
             let (descriptor, rest1) = FieldDescriptor::parse_one(rest);
             rest = rest1;
-            println!("descriptor: {descriptor:?}");
             parameters.push(descriptor);
         }
         // skip ')'
         rest = &rest[1..];
-        println!("finished parsing method parameters");
 
         let (return_ty, _) = FieldDescriptor::parse_one(rest);
 
@@ -619,14 +616,14 @@ pub struct MethodInfo {
 
     /// The value of the [`MethodInfo::name_index`] item must be a valid index into the
     /// [`ClassFile::constant_pool`] table. The [`ClassFile::constant_pool`] entry at that index
-    /// must be a [`ConstantPoolInfo::Utf8`] (§4.4.7) structure representing either one of the
+    /// must be a [`ConstantInfo::Utf8`] (§4.4.7) structure representing either one of the
     /// special method names (§2.9) `<init>` or `<clinit>`, or a valid unqualified name (§4.2.2)
     /// denoting a method.
     pub name_index: u16,
 
     /// The value of the [`MethodInfo::descriptor_index`] item must be a valid index into the
     /// [`ClassFile::constant_pool`] table. The [`ClassFile::constant_pool`] entry at that index
-    /// must be a [`ConstantPoolInfo::Utf8`] (§4.4.7) structure representing a valid method
+    /// must be a [`ConstantInfo::Utf8`] (§4.4.7) structure representing a valid method
     /// descriptor (§4.3.3).
     ///
     /// A future edition of this specification may require that the last parameter descriptor of
@@ -660,7 +657,7 @@ pub struct MethodInfo {
 }
 
 impl MethodInfo {
-    fn parse(reader: &mut impl Read, constant_pool: &[ConstantPoolInfo]) -> Self {
+    fn parse(reader: &mut impl Read, constant_pool: &[ConstantInfo]) -> Self {
         let access_flags = MethodAccessFlags::from_bits(read_u16_be(reader))
             .expect("access flags should be valid");
 
@@ -692,11 +689,11 @@ impl MethodInfo {
 }
 
 #[derive(Clone, Debug)]
-struct ExceptionCodeEntry {
-    start_pc: u16,
-    end_pc: u16,
-    handler_pc: u16,
-    catch_type: u16,
+pub struct ExceptionCodeEntry {
+    pub start_pc: u16,
+    pub end_pc: u16,
+    pub handler_pc: u16,
+    pub catch_type: u16,
 }
 
 /// Attributes are used in the [`ClassFile`], [`FieldInfo`], [`MethodInfo`], and [`AttributeInfo::Code`] structures of
@@ -708,31 +705,34 @@ struct ExceptionCodeEntry {
 /// that is, in the attributes tables of the class file structures in which they appear, the names
 /// of these predefined attributes are reserved. Of the predefined attributes:
 ///
-/// The ConstantValue, Code and Exceptions attributes must be recognized and correctly read by a
-/// class file reader for correct interpretation of the class file by a Java Virtual Machine
-/// implementation.
+/// The [`AttributeInfo::ConstantValue`], [`AttributeInfo::Code`] and [`AttributeInfo::Exceptions`]
+/// attributes must be recognized and correctly read by a class file reader for correct
+/// interpretation of the class file by a Java Virtual Machine implementation.
 ///
-/// The InnerClasses, EnclosingMethod and Synthetic attributes must be recognized and correctly
-/// read by a class file reader in order to properly implement the Java SE platform class libraries
-/// (§2.12).
+/// The [`AttributeInfo::InnerClasses`], [`AttributeInfo::EnclosingMethod`] and
+/// [`AttributeInfo::Synthetic`] attributes must be recognized and correctly read by a class file
+/// reader in order to properly implement the Java SE platform class libraries (§2.12).
 ///
-/// The RuntimeVisibleAnnotations, RuntimeInvisibleAnnotations, RuntimeVisibleParameterAnnotations,
-/// RuntimeInvisibleParameterAnnotations and AnnotationDefault attributes must be recognized and
-/// correctly read by a class file reader in order to properly implement the Java SE platform class
-/// libraries (§2.12), if the class file's version number is 49.0 or above and the Java Virtual
-/// Machine implementation recognizes class files whose version number is 49.0 or above.
-///
-/// The Signature attribute must be recognized and correctly read by a class file reader if the
-/// class file's version number is 49.0 or above and the Java Virtual Machine implementation
+/// The [`AttributeInfo::RuntimeVisibleAnnotations`],
+/// [`AttributeInfo::RuntimeInvisibleAnnotations`],
+/// [`AttributeInfo::RuntimeVisibleParameterAnnotations`],
+/// [`AttributeInfo::RuntimeInvisibleParameterAnnotations`] and
+/// [`AttributeInfo::AnnotationDefault`] attributes must be recognized and correctly read by a
+/// class file reader in order to properly implement the Java SE platform class libraries (§2.12),
+/// if the class file's version number is 49.0 or above and the Java Virtual Machine implementation
 /// recognizes class files whose version number is 49.0 or above.
 ///
-/// The StackMapTable attribute must be recognized and correctly read by a class file reader if the
-/// class file's version number is 50.0 or above and the Java Virtual Machine implementation
-/// recognizes class files whose version number is 50.0 or above.
+/// The [`AttributeInfo::Signature`] attribute must be recognized and correctly read by a class
+/// file reader if the class file's version number is 49.0 or above and the Java Virtual Machine
+/// implementation recognizes class files whose version number is 49.0 or above.
 ///
-/// The BootstrapMethods attribute must be recognized and correctly read by a class file reader if
-/// the class file's version number is 51.0 or above and the Java Virtual Machine implementation
-/// recognizes class files whose version number is 51.0 or above.
+/// The [`AttributeInfo::StackMapTable`] attribute must be recognized and correctly read by a class
+/// file reader if the class file's version number is 50.0 or above and the Java Virtual Machine
+/// implementation recognizes class files whose version number is 50.0 or above.
+///
+/// The [`AttributeInfo::BootstrapMethods`] attribute must be recognized and correctly read by a
+/// class file reader if the class file's version number is 51.0 or above and the Java Virtual
+/// Machine implementation recognizes class files whose version number is 51.0 or above.
 ///
 /// Table 4.6:  Predefined class file attributes
 /// | Attribute                              | Java SE   | Class File Version   |
@@ -792,13 +792,13 @@ pub enum AttributeInfo {
 }
 
 impl AttributeInfo {
-    fn parse(reader: &mut impl Read, constant_pool: &[ConstantPoolInfo]) -> Option<Self> {
+    fn parse(reader: &mut impl Read, constant_pool: &[ConstantInfo]) -> Option<Self> {
         let attribute_name_index = read_u16_be(reader) - 1;
         let attribute_name_index: usize = attribute_name_index.into();
 
         let attribute_name = &constant_pool[attribute_name_index];
 
-        let ConstantPoolInfo::Utf8 {
+        let ConstantInfo::Utf8 {
             bytes: attribute_name,
         } = attribute_name
         else {
@@ -901,7 +901,7 @@ pub struct ClassFile {
     /// [`ClassFile`] structure and its substructures. The format of each [`ClassFile::constant_pool`] table entry is
     /// indicated by its first "tag" byte.
     /// The [`ClassFile::constant_pool`] table is indexed from 1 to `constant_pool_count-1`.
-    pub constant_pool: Vec<ConstantPoolInfo>,
+    pub constant_pool: Vec<ConstantInfo>,
 
     /// The value of the [`ClassFile::access_flags`] item is a mask of flags used to denote access permissions to
     /// and properties of this class or interface. The interpretation of each flag, when set, is as
@@ -968,87 +968,90 @@ pub struct ClassFile {
     pub attributes: Vec<AttributeInfo>,
 }
 
-pub fn parse_class_file(class_file: &[u8]) -> ClassFile {
-    let reader = &mut Cursor::new(class_file);
-    let magic = read_u32_be(reader);
-    println!("Magic: {magic:x}");
+impl ClassFile {
+    pub fn parse(class_file: &[u8]) -> Self {
+        let reader = &mut Cursor::new(class_file);
+        let magic = read_u32_be(reader);
+        println!("Magic: {magic:x}");
 
-    let minor_version = read_u16_be(reader);
-    let major_version = read_u16_be(reader);
-    println!("Version {major_version}.{minor_version}");
+        let minor_version = read_u16_be(reader);
+        let major_version = read_u16_be(reader);
+        println!("Version {major_version}.{minor_version}");
 
-    // Refer to [`ClassFile::constant_pool`].
-    // Note(chonk): Why did they do this?
-    let constant_pool_count = read_u16_be(reader) - 1;
-    println!("There are {constant_pool_count} constants");
-    let constant_pool: Vec<ConstantPoolInfo> = (0..constant_pool_count)
-        .map(|i| {
-            let info = ConstantPoolInfo::parse(reader);
-            println!("{i}: Found constant {info:?}");
-            info
-        })
-        .collect();
+        // Refer to [`ClassFile::constant_pool`].
+        // Note(chonk): Why did they do this?
+        let constant_pool_count = read_u16_be(reader) - 1;
+        println!("There are {constant_pool_count} constants");
+        let constant_pool: Vec<ConstantInfo> = (0..constant_pool_count)
+            .map(|i| {
+                let info = ConstantInfo::parse(reader);
+                println!("{i}: Found constant {info:?}");
+                info
+            })
+            .collect();
 
-    println!();
+        println!();
 
-    let access_flags =
-        ClassAccessFlags::from_bits(read_u16_be(reader)).expect("access flags should be valid");
-    println!("Access flags: {access_flags:?}");
+        let access_flags =
+            ClassAccessFlags::from_bits(read_u16_be(reader)).expect("access flags should be valid");
+        println!("Access flags: {access_flags:?}");
 
-    let this_class = read_u16_be(reader);
-    println!("This class: {this_class}");
+        let this_class = read_u16_be(reader);
+        println!("This class: {this_class}");
 
-    let super_class = read_u16_be(reader);
-    println!("Super class: {super_class}");
-    println!();
+        let super_class = read_u16_be(reader);
+        println!("Super class: {super_class}");
+        println!();
 
-    let interfaces_count = read_u16_be(reader);
-    let interfaces = (0..interfaces_count).map(|_| read_u16_be(reader)).collect();
-    println!("Interfaces: {interfaces:?}");
-    println!();
+        let interfaces_count = read_u16_be(reader);
+        let interfaces = (0..interfaces_count).map(|_| read_u16_be(reader)).collect();
+        println!("Interfaces: {interfaces:?}");
+        println!();
 
-    let field_count = read_u16_be(reader);
-    println!("Parsing {field_count} fields");
-    let fields = (0..field_count)
-        .map(|i| {
-            let info = FieldInfo::parse(reader);
-            println!("{i}: Found field {info:?}");
-            info
-        })
-        .collect();
-    println!();
+        let field_count = read_u16_be(reader);
+        println!("Parsing {field_count} fields");
+        let fields = (0..field_count)
+            .map(|i| {
+                let info = FieldInfo::parse(reader);
+                println!("{i}: Found field {info:?}");
+                info
+            })
+            .collect();
+        println!();
 
-    let method_count = read_u16_be(reader);
-    println!("Parsing {method_count} methods");
-    let methods = (0..method_count)
-        .map(|i| {
-            let info = MethodInfo::parse(reader, &constant_pool);
-            println!("{i}: Found method {info:?}");
-            info
-        })
-        .collect();
+        let method_count = read_u16_be(reader);
+        println!("Parsing {method_count} methods");
+        let methods = (0..method_count)
+            .map(|i| {
+                let info = MethodInfo::parse(reader, &constant_pool);
+                println!("{i}: Found method {info:?}");
+                println!();
+                info
+            })
+            .collect();
 
-    let attribute_count = read_u16_be(reader);
-    println!("Parsing {attribute_count} attributes");
-    let attributes = (0..attribute_count)
-        .filter_map(|i| {
-            let info = AttributeInfo::parse(reader, &constant_pool);
-            println!("{i}: Found attribute {info:?}");
-            info
-        })
-        .collect();
+        let attribute_count = read_u16_be(reader);
+        println!("Parsing {attribute_count} attributes");
+        let attributes = (0..attribute_count)
+            .filter_map(|i| {
+                let info = AttributeInfo::parse(reader, &constant_pool);
+                println!("{i}: Found attribute {info:?}");
+                info
+            })
+            .collect();
 
-    ClassFile {
-        magic,
-        minor_version,
-        major_version,
-        constant_pool,
-        access_flags,
-        this_class,
-        super_class,
-        interfaces,
-        fields,
-        methods,
-        attributes,
+        Self {
+            magic,
+            minor_version,
+            major_version,
+            constant_pool,
+            access_flags,
+            this_class,
+            super_class,
+            interfaces,
+            fields,
+            methods,
+            attributes,
+        }
     }
 }

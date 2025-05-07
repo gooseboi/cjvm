@@ -9,7 +9,7 @@ mod class_file;
 mod jar;
 mod utils;
 use class_file::{
-    ClassFile, ConstantPoolInfo, FieldDescriptor, MethodAccessFlags, MethodDescriptor, MethodInfo,
+    ClassFile, ConstantInfo, FieldDescriptor, MethodAccessFlags, MethodDescriptor, MethodInfo,
 };
 
 use camino::Utf8PathBuf;
@@ -24,8 +24,7 @@ struct Cmd {
 }
 
 fn is_main_method(main_class: &ClassFile, method: &MethodInfo) -> bool {
-    let ConstantPoolInfo::Utf8 { bytes } = &main_class.constant_pool[method.name_index as usize]
-    else {
+    let ConstantInfo::Utf8 { bytes } = &main_class.constant_pool[method.name_index as usize] else {
         panic!("method name_index was not Utf8");
     };
 
@@ -39,7 +38,7 @@ fn is_main_method(main_class: &ClassFile, method: &MethodInfo) -> bool {
         return false;
     }
 
-    let ConstantPoolInfo::Utf8 { bytes: descriptor } =
+    let ConstantInfo::Utf8 { bytes: descriptor } =
         &main_class.constant_pool[method.descriptor_index as usize]
     else {
         panic!("method descriptor was not Utf8");
@@ -115,7 +114,7 @@ fn main() {
 
     println!("main class is {} bytes long", main_class.len());
 
-    let main_class = class_file::parse_class_file(&main_class);
+    let main_class = ClassFile::parse(&main_class);
     println!("finished parsing the main class file");
     println!();
 

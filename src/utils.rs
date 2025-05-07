@@ -1,4 +1,4 @@
-use std::io::{Cursor, Read};
+use std::io::Read;
 
 pub fn read_exact_bytes(buf: &mut impl Read, n: usize) -> Vec<u8> {
     let mut tmp = vec![0u8; n];
@@ -24,7 +24,7 @@ pub fn read_u32_be(buf: &mut impl Read) -> u32 {
     u32::from_be_bytes(tmp)
 }
 
-pub fn read_u64_be(buf: &mut impl Read) -> u64 {
+pub fn _read_u64_be(buf: &mut impl Read) -> u64 {
     let mut tmp = [0u8; 8];
     buf.read_exact(&mut tmp).expect("it's a cursor");
     u64::from_be_bytes(tmp)
@@ -43,7 +43,7 @@ pub fn read_f32_be(buf: &mut impl Read) -> f32 {
     }
 }
 
-pub fn read_f64_be(buf: &mut impl Read) -> f64 {
+pub fn _read_f64_be(buf: &mut impl Read) -> f64 {
     let mut tmp = [0u8; 8];
     buf.read_exact(&mut tmp).expect("it's a cursor");
     f64::from_be_bytes(tmp)
