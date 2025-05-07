@@ -285,7 +285,25 @@ pub enum ConstantInfo {
         /// initialization method (§2.9). The return type of such a method must be void.
         name_and_type_index: u16,
     },
-    InterfaceMethodref,
+
+    /// Fields, methods, and interface methods are represented by similar structures.
+    InterfaceMethodref {
+        /// The value of the [`ConstantInfo::InterfaceMethodref::class_index`] item must be a valid
+        /// index into the [`ClassFile::constant_pool`] table. The [`ClassFile::constant_pool`]
+        /// entry at that index must be a [`ConstantInfo::Class`] structure representing a class or
+        /// interface type that has the field or method as a member.
+        ///
+        /// The [`ConstantInfo::InterfaceMethodref::class_index`] item of a
+        /// [`ConstantInfo::InterfaceMethodref`] structure must be an interface type.
+        class_index: u16,
+
+        /// The value of the [`ConstantInfo::InterfaceMethodref::name_and_type_index`] item must be
+        /// a valid index into the [`ClassFile::constant_pool`] table. The
+        /// [`ClassFile::constant_pool`] entry at that index must be a
+        /// [`ConstantInfo::NameAndType`] structure. This [`ClassFile::constant_pool`] entry
+        /// indicates the name and descriptor of the field or method.
+        name_and_type_index: u16,
+    },
 
     /// The [`ConstantInfo::NameAndType`] structure is used to represent a field or method,
     /// without indicating which class or interface type it belongs to:
@@ -349,14 +367,17 @@ impl ConstantInfo {
             }
             // Class
             7 => Self::Class {
+                // :ConstantPoolIndex
                 name_index: read_u16_be(buf) - 1,
             },
             // String
             8 => Self::String {
+                // :ConstantPoolIndex
                 string_index: read_u16_be(buf) - 1,
             },
             // Fieldref
             9 => {
+                // :ConstantPoolIndex
                 let class_index = read_u16_be(buf) - 1;
                 let name_and_type_index = read_u16_be(buf) - 1;
                 Self::Fieldref {
@@ -366,6 +387,7 @@ impl ConstantInfo {
             }
             // Methodref
             10 => {
+                // :ConstantPoolIndex
                 let class_index = read_u16_be(buf) - 1;
                 let name_and_type_index = read_u16_be(buf) - 1;
                 Self::Methodref {
@@ -374,9 +396,18 @@ impl ConstantInfo {
                 }
             }
             // InterfaceMethodref
-            11 => todo!(),
+            11 => {
+                // :ConstantPoolIndex
+                let class_index = read_u16_be(buf) - 1;
+                let name_and_type_index = read_u16_be(buf) - 1;
+                Self::InterfaceMethodref {
+                    class_index,
+                    name_and_type_index,
+                }
+            }
             // NameAndType
             12 => {
+                // :ConstantPoolIndex
                 let name_index = read_u16_be(buf) - 1;
                 let descriptor_index = read_u16_be(buf) - 1;
                 Self::NameAndType {
@@ -661,9 +692,11 @@ impl MethodInfo {
         let access_flags = MethodAccessFlags::from_bits(read_u16_be(reader))
             .expect("access flags should be valid");
 
+        // :ConstantPoolIndex
         let name_index = read_u16_be(reader) - 1;
         println!("Method name index: {name_index}");
 
+        // :ConstantPoolIndex
         let descriptor_index = read_u16_be(reader) - 1;
         println!("Descriptor name index: {descriptor_index}");
 
@@ -793,6 +826,7 @@ pub enum AttributeInfo {
 
 impl AttributeInfo {
     fn parse(reader: &mut impl Read, constant_pool: &[ConstantInfo]) -> Option<Self> {
+        // :ConstantPoolIndex
         let attribute_name_index = read_u16_be(reader) - 1;
         let attribute_name_index: usize = attribute_name_index.into();
 
@@ -850,6 +884,7 @@ impl AttributeInfo {
                 })
             }
             "SourceFile" => Some(Self::SourceFile {
+                // :ConstantPoolIndex
                 sourcefile_index: read_u16_be(reader) - 1,
             }),
             _ => {
@@ -891,7 +926,10 @@ pub struct ClassFile {
     /// [`ClassFile::constant_pool`] table plus one. A [`ClassFile::constant_pool`] index is considered valid if it is greater
     /// than zero and less than `constant_pool_count`, with the exception for constants of type long
     /// and double noted in §4.4.5.
+    ///
     /// Note(chonk): The constant pool indexes are 1-based??? What???
+    ///
+    // :ConstantPoolIndex
     /// Note(chonk): We offset these by one when reading them, to make them sane.
     ///
     /// The length is u16.
@@ -996,11 +1034,25 @@ impl ClassFile {
             ClassAccessFlags::from_bits(read_u16_be(reader)).expect("access flags should be valid");
         println!("Access flags: {access_flags:?}");
 
-        let this_class = read_u16_be(reader);
+        // :ConstantPoolIndex
+        let this_class = read_u16_be(reader) - 1;
         println!("This class: {this_class}");
+        let ConstantInfo::Class { .. } = &constant_pool[this_class as usize] else {
+            panic!(
+                "this_class should point to a `Class` object, it pointed to {:?}",
+                constant_pool[this_class as usize]
+            );
+        };
 
-        let super_class = read_u16_be(reader);
+        // :ConstantPoolIndex
+        let super_class = read_u16_be(reader) - 1;
         println!("Super class: {super_class}");
+        let ConstantInfo::Class { .. } = &constant_pool[super_class as usize] else {
+            panic!(
+                "super_class should point to a `Class` object, it pointed to {:?}",
+                constant_pool[super_class as usize]
+            );
+        };
         println!();
 
         let interfaces_count = read_u16_be(reader);
