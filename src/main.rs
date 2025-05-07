@@ -34,13 +34,8 @@ fn is_main_method(main_class: &ClassFile, method: &MethodInfo) -> bool {
         return false;
     }
 
-    // It's public
-    if (method.access_flags & MethodAccessFlags::Public).is_empty() {
-        return false;
-    }
-
-    // It's static
-    if (method.access_flags & MethodAccessFlags::Static).is_empty() {
+    // It's public and static
+    if method.access_flags != (MethodAccessFlags::Public | MethodAccessFlags::Static) {
         return false;
     }
 
@@ -121,7 +116,8 @@ fn main() {
     println!("main class is {} bytes long", main_class.len());
 
     let main_class = class_file::parse_class_file(&main_class);
-    println!("{main_class:#?}");
+    println!("finished parsing the main class file");
+    println!();
 
     if let Some(main_method) = main_class
         .methods

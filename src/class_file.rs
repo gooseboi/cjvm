@@ -675,7 +675,9 @@ impl MethodInfo {
         let attributes = (0..attribute_count)
             .filter_map(|i| {
                 let attribute = AttributeInfo::parse(reader, constant_pool);
-                println!("{i}: Found attribute {attribute:?}");
+                if let Some(attribute) = &attribute {
+                    println!("{i}: Found attribute {attribute:?}");
+                }
                 attribute
             })
             .collect();
